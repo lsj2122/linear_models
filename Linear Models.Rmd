@@ -122,7 +122,7 @@ fit =
   knitr::kable(digits = 3)
 ```
 
-Nesting within Boroughs
+## Nesting within Boroughs
 
 ```{r}
 airbnb_lm = function(df) {
@@ -163,4 +163,38 @@ nyc_airbnb |>
   knitr::kable(digits = 2)
 ```
 
+## Binary Outcomes 
+
+Looking at Homicides in Baltimore
+
+```{r}
+baltimore_df = 
+  read_csv("data/homicide-data.csv") |> 
+  filter(city == "Baltimore") |> 
+  mutate(
+    resolved = as.numeric(disposition == "Closed by arrest"),
+    victim_age = as.numeric(victim_age)) |> 
+  select(resolved, victim_age, victim_race, victim_sex)
+```
+
+Fitting a logistic regression
+
+```{r}
+fit_logistic = 
+  baltimore_df |> 
+  glm(
+    resolved ~ victim_age + victim_race + victim_sex, 
+    data = _, 
+    family = binomial()) 
+```
+
+Look at model results
+
+```{r}
+fit_logistic |> 
+  broom::tidy() |> 
+  mutate(OR = exp(estimate)) |>
+  select(term, log_OR = estimate, OR, p.value) |> 
+  knitr::kable(digits = 3)
+```
 
