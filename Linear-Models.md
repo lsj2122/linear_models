@@ -20,6 +20,8 @@ library(tidyverse)
 library(p8105.datasets)
 ```
 
+## Load and Clean the Airbnb Data
+
 ``` r
 data("nyc_airbnb")
 
@@ -238,43 +240,64 @@ anova(fit_null, fit_alternative) |>
 
 ## Borough-level differences
 
-## Nesting Data
-
 ``` r
-nyc_airbnb |> 
-  lm(price ~ stars * borough + room_type * borough, data = _) |> 
+fit = 
+  nyc_airbnb |> 
+  lm(price ~ stars * borough + room_type * borough, data = _) |>
   broom::tidy() |> 
   knitr::kable(digits = 3)
 ```
 
-| term                                   | estimate | std.error | statistic | p.value |
-|:---------------------------------------|---------:|----------:|----------:|--------:|
-| (Intercept)                            |   90.067 |    75.406 |     1.194 |   0.232 |
-| stars                                  |    4.446 |    16.633 |     0.267 |   0.789 |
-| boroughBrooklyn                        |  -20.439 |    77.117 |    -0.265 |   0.791 |
-| boroughManhattan                       |    5.627 |    77.808 |     0.072 |   0.942 |
-| boroughQueens                          |    1.509 |    83.501 |     0.018 |   0.986 |
-| room_typePrivate room                  |  -52.915 |    17.751 |    -2.981 |   0.003 |
-| room_typeShared room                   |  -70.547 |    41.551 |    -1.698 |   0.090 |
-| stars:boroughBrooklyn                  |   16.525 |    16.982 |     0.973 |   0.331 |
-| stars:boroughManhattan                 |   22.664 |    17.099 |     1.325 |   0.185 |
-| stars:boroughQueens                    |    5.208 |    18.272 |     0.285 |   0.776 |
-| boroughBrooklyn:room_typePrivate room  |  -39.308 |    18.024 |    -2.181 |   0.029 |
-| boroughManhattan:room_typePrivate room |  -71.273 |    18.002 |    -3.959 |   0.000 |
-| boroughQueens:room_typePrivate room    |  -16.341 |    19.020 |    -0.859 |   0.390 |
-| boroughBrooklyn:room_typeShared room   |  -35.292 |    42.942 |    -0.822 |   0.411 |
-| boroughManhattan:room_typeShared room  |  -83.089 |    42.451 |    -1.957 |   0.050 |
-| boroughQueens:room_typeShared room     |  -24.427 |    44.399 |    -0.550 |   0.582 |
-
 Nesting within Boroughs
 
 ``` r
-nest_lm_res =
-  nyc_airbnb |> 
-  nest(data = -borough) |> 
+airbnb_lm = function(df) {
+  lm(price ~ stars + room_type, data = df)
+}
+
+nyc_airbnb |> 
+  nest(df = -borough) |> 
   mutate(
-    models = map(data, \(df) lm(price ~ stars + room_type, data = df)),
+    models = map(df, airbnb_lm),
     results = map(models, broom::tidy)) |> 
-  select(-data, -models) |> 
-  unnest(results)
+  select(borough, results) |> 
+  unnest(results) |> 
+  select(borough, term, estimate) |> 
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate
+    ) |> 
+  knitr::kable(digits = 2)
 ```
+
+| borough   | (Intercept) | stars | room_typePrivate room | room_typeShared room |
+|:----------|------------:|------:|----------------------:|---------------------:|
+| Bronx     |       90.07 |  4.45 |                -52.91 |               -70.55 |
+| Queens    |       91.58 |  9.65 |                -69.26 |               -94.97 |
+| Brooklyn  |       69.63 | 20.97 |                -92.22 |              -105.84 |
+| Manhattan |       95.69 | 27.11 |               -124.19 |              -153.64 |
+
+## Anonymous Function
+
+``` r
+nyc_airbnb |> 
+  nest(df = -borough) |> 
+  mutate(
+    models = map(df, \(df) lm(price ~ stars + room_type, data = df)),
+    results = map(models, broom::tidy)) |> 
+  select(borough, results) |> 
+  unnest(results) |> 
+  select(borough, term, estimate) |> 
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate
+    ) |> 
+  knitr::kable(digits = 2)
+```
+
+| borough   | (Intercept) | stars | room_typePrivate room | room_typeShared room |
+|:----------|------------:|------:|----------------------:|---------------------:|
+| Bronx     |       90.07 |  4.45 |                -52.91 |               -70.55 |
+| Queens    |       91.58 |  9.65 |                -69.26 |               -94.97 |
+| Brooklyn  |       69.63 | 20.97 |                -92.22 |              -105.84 |
+| Manhattan |       95.69 | 27.11 |               -124.19 |              -153.64 |

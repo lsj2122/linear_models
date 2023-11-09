@@ -9,6 +9,8 @@ library(p8105.datasets)
 ```
 
 
+## Load and Clean the Airbnb Data
+
 ```{r}
 data("nyc_airbnb")
 
@@ -113,15 +115,9 @@ anova(fit_null, fit_alternative) |>
 ## Borough-level differences
 
 ```{r}
-
-```
-
-
-## Nesting Data
-
-```{r}
-nyc_airbnb |> 
-  lm(price ~ stars * borough + room_type * borough, data = _) |> 
+fit = 
+  nyc_airbnb |> 
+  lm(price ~ stars * borough + room_type * borough, data = _) |>
   broom::tidy() |> 
   knitr::kable(digits = 3)
 ```
@@ -129,13 +125,42 @@ nyc_airbnb |>
 Nesting within Boroughs
 
 ```{r}
-nest_lm_res =
-  nyc_airbnb |> 
-  nest(data = -borough) |> 
+airbnb_lm = function(df) {
+  lm(price ~ stars + room_type, data = df)
+}
+
+nyc_airbnb |> 
+  nest(df = -borough) |> 
   mutate(
-    models = map(data, \(df) lm(price ~ stars + room_type, data = df)),
+    models = map(df, airbnb_lm),
     results = map(models, broom::tidy)) |> 
-  select(-data, -models) |> 
-  unnest(results)
+  select(borough, results) |> 
+  unnest(results) |> 
+  select(borough, term, estimate) |> 
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate
+    ) |> 
+  knitr::kable(digits = 2)
 ```
+
+
+## Anonymous Function
+
+```{r}
+nyc_airbnb |> 
+  nest(df = -borough) |> 
+  mutate(
+    models = map(df, \(df) lm(price ~ stars + room_type, data = df)),
+    results = map(models, broom::tidy)) |> 
+  select(borough, results) |> 
+  unnest(results) |> 
+  select(borough, term, estimate) |> 
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate
+    ) |> 
+  knitr::kable(digits = 2)
+```
+
 
