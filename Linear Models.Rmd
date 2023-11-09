@@ -55,14 +55,18 @@ fit |>
   knitr::kable(digits = 3)
 ```
 
+## Fit another model
 
 ```{r}
-nyc_airbnb = 
+fit = 
   nyc_airbnb |> 
   mutate(
     borough = fct_infreq(borough),
-    room_type = fct_infreq(room_type))
+    room_type = fct_infreq(room_type)) |> 
+  lm(price ~ stars + borough + room_type, data = _)
 
-fit = lm(price ~ stars + borough, data = nyc_airbnb)
+fit |> 
+  broom::tidy()
 ```
+
 

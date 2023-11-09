@@ -136,12 +136,27 @@ fit |>
 | Borough: Manhattan |   90.254 |   0.000 |
 | Borough: Queens    |   13.206 |   0.145 |
 
+## Fit another model
+
 ``` r
-nyc_airbnb = 
+fit = 
   nyc_airbnb |> 
   mutate(
     borough = fct_infreq(borough),
-    room_type = fct_infreq(room_type))
+    room_type = fct_infreq(room_type)) |> 
+  lm(price ~ stars + borough + room_type, data = _)
 
-fit = lm(price ~ stars + borough, data = nyc_airbnb)
+fit |> 
+  broom::tidy()
 ```
+
+    ## # A tibble: 7 × 5
+    ##   term                  estimate std.error statistic  p.value
+    ##   <chr>                    <dbl>     <dbl>     <dbl>    <dbl>
+    ## 1 (Intercept)              113.      11.8       9.54 1.56e-21
+    ## 2 stars                     21.9      2.43      9.01 2.09e-19
+    ## 3 boroughBrooklyn          -40.3      2.15    -18.8  4.62e-78
+    ## 4 boroughQueens            -55.5      3.59    -15.4  1.32e-53
+    ## 5 boroughBronx             -63.0      8.22     -7.67 1.76e-14
+    ## 6 room_typePrivate room   -105.       2.05    -51.2  0       
+    ## 7 room_typeShared room    -129.       6.15    -21.0  2.24e-97
