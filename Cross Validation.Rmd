@@ -1,0 +1,13 @@
+---
+title: "Cross Validation"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+library(modelr)
+library(mgcv)
+
+set.seed(1)
+```
+
