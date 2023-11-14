@@ -95,7 +95,137 @@ rmse(wiggly_mod, test_df)
 RMSEs on training data is misleading. While RMSEs on testing data gives a sesne of out-of-sample predicition accuracy.
 
 
-```{r}
+## Use modelr for CV
 
+```{r}
+cv_df = 
+  crossv_mc(nonlin_df, 100) 
 ```
 
+```{r}
+cv_df |> pull(train) |> nth(1) |> as_tibble()
+```
+
+```{r}
+cv_df |> pull(test) |> nth(1) |> as_tibble()
+```
+
+```{r}
+cv_df =
+  cv_df |> 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+```
+
+Apply each model to all training datasets, and evaluate on all testing datasets.
+
+```{r}
+cv_results = 
+  cv_df |> 
+  mutate(
+    linear_fit = map(train, \(df) lm(y ~ x, data = df)),
+    smooth_fit = map(train, \(df) mgcv::gam(y ~ s(x), data = df)),
+    wiggly_fit = map(train, \(df) mgcv::gam(y ~ s(x, k = 30), sp = 10e-6, data = df))
+    ) |> 
+  mutate(
+    rmse_linear = map2_dbl(linear_fit, test, \(mod, df) rmse(mod, df)),
+    rmse_smooth = map2_dbl(smooth_fit, test, \(mod, df) rmse(mod, df)),
+    rmse_wiggly = map2_dbl(wiggly_fit, test, \(mod, df) rmse(mod, df))
+  )
+```
+
+```{r}
+cv_results |> 
+  select(starts_with("rmse")) |> 
+  pivot_longer(
+    everything(),
+    names_to = "model_type",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) |> 
+  group_by(model_type) |> 
+  summarize(m_rmse = mean(rmse))
+```
+
+```{r}
+cv_results |> 
+  select(starts_with("rmse")) |> 
+  pivot_longer(
+    everything(),
+    names_to = "model_type", 
+    values_to = "rmse",
+    names_prefix = "rmse_") |> 
+  ggplot(aes(x = model_type, y = rmse)) + 
+  geom_violin()
+```
+
+
+## Child Growth Example
+
+```{r}
+child_growth = read_csv("./data/nepalese_children.csv")
+```
+
+```{r}
+child_growth |> 
+  ggplot(aes(x = weight, y = armc)) + 
+  geom_point(alpha = .5)
+```
+
+```{r}
+child_growth =
+  child_growth |> 
+  mutate(weight_cp = (weight > 7) * (weight - 7))
+```
+
+```{r}
+linear_mod = lm(armc ~ weight, data = child_growth)
+pwl_mod = lm(armc ~ weight + weight_cp, data = child_growth)
+smooth_mod = gam(armc ~ s(weight), data = child_growth)
+```
+
+```{r}
+child_growth |> 
+  gather_predictions(linear_mod, pwl_mod, smooth_mod) |> 
+  mutate(model = fct_inorder(model)) |> 
+  ggplot(aes(x = weight, y = armc)) + 
+  geom_point(alpha = .5) +
+  geom_line(aes(y = pred), color = "red") + 
+  facet_grid(~model)
+```
+
+```{r}
+cv_df =
+  crossv_mc(child_growth, 100) |> 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+```
+
+```{r}
+cv_df = 
+  cv_df |> 
+  mutate(
+    linear_mod  = map(train, ~lm(armc ~ weight, data = .x)),
+    pwl_mod = map(train, ~lm(armc ~ weight + weight_cp, data = .x)),
+    smooth_mod  = map(train, ~gam(armc ~ s(weight), data = as_tibble(.x)))) |> 
+  mutate(
+    rmse_linear = map2_dbl(linear_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_pwl = map2_dbl(pwl_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_smooth = map2_dbl(smooth_mod, test, ~rmse(model = .x, data = .y)))
+```
+
+```{r}
+cv_df |> 
+  select(starts_with("rmse")) |> 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") |> 
+  mutate(model = fct_inorder(model)) |> 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
+```
+
+ 
